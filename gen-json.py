@@ -2,8 +2,11 @@
 #-*- coding: UTF-8 -*-
 
 # autor: Ignacio Gilbaja
-# date: 2015-07-01
+# date: 2016-02-01
 # version: 1.1
+
+# date: 2016-02-05
+# version: 1.2
 
 ##################################################################################
 # version 1.0 release notes: extract data from MySQL and generate json
