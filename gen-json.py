@@ -2,11 +2,8 @@
 #-*- coding: UTF-8 -*-
 
 # autor: Ignacio Gilbaja
-# date: 2016-02-01
+# date: 2015-07-01
 # version: 1.1
-
-# date: 2016-02-05
-# version: 1.2
 
 ##################################################################################
 # version 1.0 release notes: extract data from MySQL and generate json
@@ -18,14 +15,15 @@
 import MySQLdb
 import logging, logging.handlers
 import os
-import time
 import json
 import sys
+import datetime
+import calendar
+import time
 
 #### VARIABLES #########################################################
 from configobj import ConfigObj
 config = ConfigObj('/opt/gen-json/gen-json.properties')
-#config = ConfigObj('./visor_wrc.properties')
 
 INTERNAL_LOG_FILE = config['directory_logs'] + "/gen-json.log"
 LOG_FOR_ROTATE = 10
@@ -87,6 +85,10 @@ pidfile.write(str(os.getpid()))
 pidfile.close()
 #########################################################################
 
+def getUTC():
+	t = calendar.timegm(datetime.datetime.utcnow().utctimetuple())
+	return int(t)
+
 
 def getTracking():
 	dbKyros4 = MySQLdb.connect(MYSQL_IP, MYSQL_USER, MYSQL_PASSWORD, MYSQL_NAME)
@@ -96,8 +98,19 @@ def getTracking():
 		logger.error('Error connecting to database: IP:%s, USER:%s, PASSWORD:%s, DB:%s', MYSQL_IP, MYSQL_USER, MYSQL_PASSWORD, MYSQL_NAME)
 
 	cursor = dbKyros4.cursor()
-#	cursor.execute("""SELECT TRACKING_1.VEHICLE_LICENSE as DEV, POS_LATITUDE_DEGREE + POS_LATITUDE_MIN/60 as LAT, POS_LONGITUDE_DEGREE + POS_LONGITUDE_MIN/60 as LON, VEHICLE.START_STATE as STATUS from TRACKING_1 join (VEHICLE, HAS, FLEET) where TRACKING_1.VEHICLE_LICENSE = HAS.VEHICLE_LICENSE and TRACKING_1.VEHICLE_LICENSE = VEHICLE.VEHICLE_LICENSE and HAS.FLEET_ID=FLEET.FLEET_ID and (FLEET.FLEET_ID=489 || FLEET.FLEET_ID=498)""" )
-	cursor.execute("""SELECT VEHICLE.ALIAS as DRIVER, round(POS_LATITUDE_DEGREE,4) + round(POS_LATITUDE_MIN/60,4) as LAT, round(POS_LONGITUDE_DEGREE,4) + round(POS_LONGITUDE_MIN/60,4) as LON, VEHICLE.START_STATE as TRACKING_STATE, VEHICLE_EVENT_1.TYPE_EVENT as VEHICLE_STATE, TRACKING_1.VEHICLE_LICENSE as DEV from TRACKING_1 join (VEHICLE, HAS, FLEET, VEHICLE_EVENT_1) where TRACKING_1.VEHICLE_LICENSE = HAS.VEHICLE_LICENSE and TRACKING_1.VEHICLE_LICENSE = VEHICLE.VEHICLE_LICENSE and VEHICLE_EVENT_1.VEHICLE_LICENSE = VEHICLE.VEHICLE_LICENSE and HAS.FLEET_ID=FLEET.FLEET_ID and (FLEET.FLEET_ID=489 || FLEET.FLEET_ID=498) """)
+	cursor.execute("""SELECT VEHICLE.ALIAS as DRIVER, 
+		round(POS_LATITUDE_DEGREE,5) + round(POS_LATITUDE_MIN/60,5) as LAT, 
+		round(POS_LONGITUDE_DEGREE,5) + round(POS_LONGITUDE_MIN/60,5) as LON, 
+		VEHICLE.START_STATE as TRACKING_STATE, 
+		VEHICLE_EVENT_1.TYPE_EVENT as VEHICLE_STATE, 
+		VEHICLE.ALARM_ACTIVATED as ALARM_STATE,
+		TRACKING_1.VEHICLE_LICENSE as DEV,
+		TRACKING_1.POS_DATE as DATE 
+		FROM VEHICLE inner join (TRACKING_1, HAS, VEHICLE_EVENT_1) 
+		WHERE VEHICLE.VEHICLE_LICENSE = TRACKING_1.VEHICLE_LICENSE
+		AND VEHICLE.VEHICLE_LICENSE = VEHICLE_EVENT_1.VEHICLE_LICENSE
+		AND VEHICLE.VEHICLE_LICENSE =  HAS.VEHICLE_LICENSE
+		AND (HAS.FLEET_ID=489 || HAS.FLEET_ID=498)""")
 	result = cursor.fetchall()
 	
 	try:
@@ -117,10 +130,22 @@ while True:
 	#	print lonRound
 	#	latRound = float("{0:.4f}".format(tracking[1]))
 	#	print latRound
-		position = {"geometry": {"type": "Point", "coordinates": [ tracking[2] , tracking[1] ]}, "type": "Feature", "properties":{"alias":str(tracking[0]), "tracking_state":str(tracking[3]), "vehicle_state":str(tracking[4]), "license":str(tracking[5])}}
+		tracking_state = str(tracking[3])
+		state = str(tracking[4])
+
+		#if (state != "CAR_HOOD_OPEN" and state != "YELLOW_FLAG_CONFIRM" and state != "VEHICLE_STOPPED" and tracking_state != "STOP"):
+		if (state != "CAR_HOOD_OPEN" and state != "YELLOW_FLAG_CONFIRM" and tracking_state != "STOP"):
+			utcDate = getUTC()
+			delta = (utcDate-3600) - int(tracking[7])/1000
+			if delta > 300:
+				state = "OLD"
+			elif delta > 90:
+				state = "1MIN"
+
+		position = {"geometry": {"type": "Point", "coordinates": [ tracking[2] , tracking[1] ]}, "type": "Feature", "properties":{"alias":str(tracking[0]), "tracking_state":str(tracking[3]), "vehicle_state":state, "alarm_state":str(tracking[5]), "license":str(tracking[6])}}
 		array_list.append(position)
 
 	with open('/var/www2/tracking_wrc.json', 'w') as outfile:
 		json.dump(array_list, outfile)
 	
-	time.sleep(2)
+	time.sleep(1)
