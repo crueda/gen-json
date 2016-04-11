@@ -101,7 +101,7 @@ def getTracking():
 	cursor.execute("""SELECT VEHICLE.ALIAS as DRIVER, 
 		round(POS_LATITUDE_DEGREE,5) + round(POS_LATITUDE_MIN/60,5) as LAT, 
 		round(POS_LONGITUDE_DEGREE,5) + round(POS_LONGITUDE_MIN/60,5) as LON, 
-		round(TRACKING_1.SPEED,1) as speed,
+		round(TRACKING_1.GPS_SPEED,1) as speed,
 		round(TRACKING_1.HEADING,1) as heading,
 		VEHICLE.START_STATE as TRACKING_STATE, 
 		VEHICLE_EVENT_1.TYPE_EVENT as VEHICLE_STATE, 
@@ -144,7 +144,7 @@ while True:
 			elif delta > 90:
 				state = "1MIN"
 
-		position = {"geometry": {"type": "Point", "coordinates": [ tracking[2] , tracking[1] ]}, "type": "Feature", "properties":{"alias":str(tracking[0]), "speed": tracking[3], "heading": tracking[4], "tracking_state":tracking_state, "vehicle_state":state, "alarm_state":str(tracking[5]), "license":str(tracking[6])}}
+		position = {"geometry": {"type": "Point", "coordinates": [ tracking[2] , tracking[1] ]}, "type": "Feature", "properties":{"alias":str(tracking[0]), "speed": str(tracking[3]), "heading": str(tracking[4]), "tracking_state":tracking_state, "vehicle_state":state, "alarm_state":str(tracking[5]), "license":str(tracking[6])}}
 		array_list.append(position)
 
 	with open('/var/www2/tracking_wrc.json', 'w') as outfile:
