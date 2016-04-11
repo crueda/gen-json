@@ -144,7 +144,7 @@ while True:
 			elif delta > 90:
 				state = "1MIN"
 
-		position = {"geometry": {"type": "Point", "coordinates": [ tracking[2] , tracking[1] ]}, "type": "Feature", "properties":{"alias":str(tracking[0]), "speed": str(tracking[3]), "heading": str(tracking[4]), "tracking_state":tracking_state, "vehicle_state":state, "alarm_state":str(tracking[5]), "license":str(tracking[6])}}
+		position = {"geometry": {"type": "Point", "coordinates": [ tracking[2] , tracking[1] ]}, "type": "Feature", "properties":{"alias":str(tracking[0]), "speed": str(tracking[3]), "heading": str(tracking[4]), "tracking_state":tracking_state, "vehicle_state":state, "alarm_state":str(tracking[7]), "license":str(tracking[8])}}
 		array_list.append(position)
 
 	with open('/var/www2/tracking_wrc.json', 'w') as outfile:
